@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 Sequential Bind Generator</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --border: #2a2f3a;
+    --text: #e6e8ee; --muted: #8b93a5; --accent: #f5a623; --accent2: #ffc65c;
+    --ok: #4ade80; --warn: #fbbf24; --err: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  textarea, input[type=text] {
+    width: 100%; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 9px 10px;
+    font: 14px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  textarea { min-height: 260px; resize: vertical; white-space: pre; overflow: auto; }
+  textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  .opts { margin-top: 12px; display: grid; gap: 6px; }
+  .opts label { display: flex; gap: 8px; align-items: flex-start; margin: 0; color: var(--text); font-size: 13.5px; cursor: pointer; }
+  .opts small { color: var(--muted); display: block; }
+  pre#out {
+    margin: 0; background: #0b0d11; border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; min-height: 260px; max-height: 520px; overflow: auto;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre; color: #cfe3ff;
+  }
+  .btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    background: var(--accent); color: #1a1200; border: 0; border-radius: 6px;
+    padding: 9px 14px; font-weight: 600; cursor: pointer; font-size: 14px;
+  }
+  button.sec { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .stats { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .msgs { margin-top: 10px; display: grid; gap: 6px; }
+  .msg { font-size: 13px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel2); }
+  .msg.warn { border-color: #5c4a14; color: var(--warn); }
+  .msg.err { border-color: #5c2222; color: var(--err); }
+  .msg.ok { border-color: #1f4d33; color: var(--ok); }
+  details { margin-top: 18px; color: var(--muted); font-size: 13.5px; }
+  summary { cursor: pointer; color: var(--text); }
+  code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+  footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CS2 <span>Sequential Bind</span> Generator</h1>
+  <p class="sub">Turn multi-line text or ASCII/Braille art into a step-through alias chain. One key press = one chat line.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Input</h2>
+      <label for="text">Text (one chat line per row)</label>
+      <textarea id="text" spellcheck="false" placeholder="Paste your copypasta or art here…"></textarea>
+
+      <div class="row">
+        <div>
+          <label for="name">Alias name</label>
+          <input type="text" id="name" value="shork" autocomplete="off" spellcheck="false">
+        </div>
+        <div>
+          <label for="key">Key</label>
+          <input type="text" id="key" value="o" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="cmd">Chat command</label>
+          <input type="text" id="cmd" value="say" autocomplete="off" spellcheck="false">
+        </div>
+        <div>
+          <label for="limit">Byte limit warning</label>
+          <input type="text" id="limit" value="127" autocomplete="off" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="opts">
+        <label><input type="checkbox" id="skipEmpty" checked>
+          <span>Skip empty lines<small>Empty <code>say</code> lines send nothing and waste a key press.</small></span></label>
+        <label><input type="checkbox" id="trim" checked>
+          <span>Trim trailing whitespace</span></label>
+        <label><input type="checkbox" id="sanitize" checked>
+          <span>Auto-fix characters that break aliases<small>Replaces <code>"</code> with <code>'</code> and <code>;</code> with a lookalike (<code>;</code> → <code>；</code>).</small></span></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Generated config</h2>
+      <pre id="out"></pre>
+      <div class="stats" id="stats"></div>
+      <div class="msgs" id="msgs"></div>
+      <div class="btns">
+        <button id="copy">Copy</button>
+        <button id="dl" class="sec">Download .cfg</button>
+      </div>
+    </section>
+  </div>
+
+  <details>
+    <summary>How to use this in CS2</summary>
+    <p>Paste the output into the console, or save it as <code>autoexec.cfg</code> in <code>game/csgo/cfg/</code> (add <code>exec yourfile</code> if you use a separate file). Press the bound key repeatedly: each press sends the next line, then loops back to line 1 after the last one. If you press partway and want to restart, re-exec the config.</p>
+    <p>Notes: CS2 has no <code>wait</code>, so spam filters are avoided by pressing manually. Double quotes can't be nested inside an alias, and <code>//</code> is read as a comment start in cfg files, so avoid those in your text. Chat message length limits vary, and Braille characters take 3 bytes each in UTF-8, so long art lines may get truncated in game. Tune the byte limit warning to what you observe.</p>
+  </details>
+
+  <footer>Runs entirely in your browser. Nothing is uploaded.</footer>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const els = {
+    text: $('text'), name: $('name'), key: $('key'), cmd: $('cmd'), limit: $('limit'),
+    skipEmpty: $('skipEmpty'), trim: $('trim'), sanitize: $('sanitize'),
+    out: $('out'), stats: $('stats'), msgs: $('msgs'), copy: $('copy'), dl: $('dl')
+  };
+
+  const sample = [
+    '⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿',
+    '⣿⣿⣿⣿⡿⠛⠉⠉⠛⢿⣿⣿⣿⣿',
+    '⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⢻⣿⣿⣿',
+    '⣿⣿⣿⣧⡀⠀⠀⠀⠀⢀⣼⣿⣿⣿',
+    '⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿'
+  ].join('\n');
+  els.text.value = sample;
+
+  const byteLen = s => new TextEncoder().encode(s).length;
+  const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+  let current = '';
+
+  function generate() {
+    const msgs = [];
+    const add = (cls, t) => msgs.push({ cls, t });
+
+    let name = els.name.value.trim();
+    const key = els.key.value.trim();
+    const cmd = els.cmd.value.trim() || 'say';
+    const limit = parseInt(els.limit.value, 10) || 0;
+
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+      add('err', 'Alias name must start with a letter or underscore and contain only letters, digits and underscores.');
+    }
+    if (!key) add('err', 'Enter a key to bind.');
+    if (/\s/.test(key)) add('err', 'Key name cannot contain spaces.');
+
+    let lines = els.text.value.replace(/\r\n?/g, '\n').split('\n');
+    if (els.trim.checked) lines = lines.map(l => l.replace(/\s+$/g, ''));
+    if (els.skipEmpty.checked) lines = lines.filter(l => l.trim() !== '');
+
+    let fixedQuotes = 0, fixedSemis = 0;
+    lines = lines.map((l, i) => {
+      if (els.sanitize.checked) {
+        const q = (l.match(/"/g) || []).length;
+        const s = (l.match(/;/g) || []).length;
+        fixedQuotes += q; fixedSemis += s;
+        l = l.replace(/"/g, "'").replace(/;/g, '；');
+      } else {
+        if (/"/.test(l)) add('err', `Line ${i + 1} contains a double quote, which breaks the alias.`);
+        if (/;/.test(l)) add('err', `Line ${i + 1} contains a semicolon, which splits the command.`);
+      }
+      if (/\/\//.test(l)) add('warn', `Line ${i + 1} contains "//", which cfg parsing may treat as a comment.`);
+      return l;
+    });
+
+    if (fixedQuotes) add('warn', `Replaced ${fixedQuotes} double quote(s) with single quotes.`);
+    if (fixedSemis) add('warn', `Replaced ${fixedSemis} semicolon(s) with a fullwidth lookalike.`);
+
+    const hardError = msgs.some(m => m.cls === 'err');
+    if (!lines.length) {
+      current = '';
+      els.out.textContent = '';
+      els.stats.textContent = 'No lines yet.';
+      render(msgs);
+      toggleButtons(false);
+      return;
+    }
+
+    const n = lines.length;
+    const out = [];
+    out.push(`// --- ${cap(name)} Bind (${key.toUpperCase()} Key) ---`);
+    lines.forEach((l, i) => {
+      const next = (i + 1) % n + 1;
+      out.push(`alias "${name}${i + 1}" "${cmd} ${l}; alias ${name}next ${name}${next}"`);
+    });
+    out.push('');
+    out.push(`alias "${name}next" "${name}1"`);
+    out.push(`bind "${key}" "${name}next"`);
+
+    current = out.join('\n') + '\n';
+    els.out.textContent = current;
+
+    let maxBytes = 0, maxLine = 0;
+    lines.forEach((l, i) => { const b = byteLen(l); if (b > maxBytes) { maxBytes = b; maxLine = i + 1; } });
+    els.stats.textContent = `${n} line${n === 1 ? '' : 's'} · longest message ${maxBytes} bytes (line ${maxLine})`;
+
+    if (limit) {
+      const over = lines.map((l, i) => [i + 1, byteLen(l)]).filter(([, b]) => b > limit);
+      if (over.length) {
+        const shown = over.slice(0, 6).map(([i, b]) => `${i} (${b}B)`).join(', ');
+        add('warn', `${over.length} line(s) exceed ${limit} bytes and may be cut off in chat: ${shown}${over.length > 6 ? '…' : ''}`);
+      }
+    }
+    if (!msgs.length) add('ok', 'Looks good. Ready to copy.');
+
+    render(msgs);
+    toggleButtons(!hardError);
+  }
+
+  function render(msgs) {
+    els.msgs.innerHTML = '';
+    msgs.forEach(m => {
+      const d = document.createElement('div');
+      d.className = 'msg ' + m.cls;
+      d.textContent = m.t;
+      els.msgs.appendChild(d);
+    });
+  }
+
+  function toggleButtons(enabled) {
+    els.copy.disabled = !enabled || !current;
+    els.dl.disabled = !enabled || !current;
+  }
+
+  els.copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(current);
+    } catch (e) {
+      const r = document.createRange();
+      r.selectNodeContents(els.out);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      document.execCommand('copy');
+    }
+    const old = els.copy.textContent;
+    els.copy.textContent = 'Copied!';
+    setTimeout(() => (els.copy.textContent = old), 1200);
+  });
+
+  els.dl.addEventListener('click', () => {
+    const name = (els.name.value.trim() || 'binds').replace(/[^\w-]/g, '_');
+    const blob = new Blob([current], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name + '.cfg';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  ['input', 'change'].forEach(ev =>
+    Object.values(els).forEach(el => {
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.addEventListener(ev, generate);
+    })
+  );
+
+  generate();
+})();
+</script>
+</body>
+</html>
